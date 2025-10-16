@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Size Compressor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+      text-align: center;
+    }
+    .container {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: inline-block;
+      max-width: 400px;
+      width: 100%;
+    }
+    input[type="file"], input[type="number"] {
+      margin: 10px 0;
+      width: 90%;
+    }
+    img {
+      max-width: 100%;
+      margin-top: 15px;
+      border-radius: 8px;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Image Compressor</h2>
+    <p>Upload an image to reduce its size up to your target (default: 490 KB)</p>
+    <input type="file" id="upload" accept="image/*"><br>
+    <label>Target size (KB): </label>
+    <input type="number" id="targetSize" value="490" min="50" max="2000"><br>
+    <button onclick="compressImage()">Compress Image</button>
+    <div id="preview"></div>
+  </div>
+
+  <script>
+    async function compressImage() {
+      const fileInput = document.getElementById('upload');
+      const targetSizeKB = parseInt(document.getElementById('targetSize').value);
+      const preview = document.getElementById('preview');
+      preview.innerHTML = '';
+
+      if (!fileInput.files.length) {
+        alert('Please upload an image first.');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = async function (event) {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = async function () {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          // Resize image to reasonable dimensions
+          const MAX_WIDTH = 1920;
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = Math.min(img.width, MAX_WIDTH);
+          canvas.height = img.height * (img.width > MAX_WIDTH ? scaleSize : 1);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          let quality = 0.9;
+          let compressedBlob;
+
+          // Iteratively compress until under target size
+          while (quality > 0.1) {
+            compressedBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+            if (compressedBlob.size / 1024 <= targetSizeKB) break;
+            quality -= 0.05;
+          }
+
+          const url = URL.createObjectURL(compressedBlob);
+          preview.innerHTML = `
+            <p>Compressed Size: ${(compressedBlob.size / 1024).toFixed(2)} KB</p>
+            <img src="${url}" alt="Compressed Image">
+            <br><a href="${url}" download="compressed.jpg"><button>Download Image</button></a>
+          `;
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
